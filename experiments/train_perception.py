@@ -1,5 +1,7 @@
 
 import os
+import time
+
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -7,9 +9,12 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
 
 from perception.knn import KNN
 from perception.decision_tree import DecisionTree
+from perception.random_forest import RandomForest
+from perception.features import transform_dataset
 from perception.evaluation import evaluate_model
 
 
@@ -21,7 +26,7 @@ def main():
         "results/lidar_dataset.csv"
     )
 
-    X = dataset.drop(
+    X_raw = dataset.drop(
         columns=["label"]
     ).values
 
@@ -29,8 +34,15 @@ def main():
 
     labels = sorted(set(y))
 
-    print(f"Dataset shape: {X.shape}")
+    print(f"Original dataset shape: {X_raw.shape}")
     print(f"Classes: {labels}")
+
+    # Extract engineered features
+    print("\nExtracting LiDAR features...")
+
+    X = transform_dataset(X_raw)
+
+    print(f"Engineered feature shape: {X.shape}")
 
     # Stratified train-test split
     X_train, X_test, y_train, y_test = train_test_split(
@@ -44,33 +56,27 @@ def main():
     print(f"\nTraining samples: {len(X_train)}")
     print(f"Testing samples: {len(X_test)}")
 
-    # Scale features for distance-based KNN
+    results = []
+
+    # Scale features for KNN only
     scaler = StandardScaler()
 
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
 
-    results = []
+    # 1. Custom KNN
+    print("\nTraining Custom KNN...")
 
-    # 1. Our KNN implementation
-    print("\nTraining KNN from scratch...")
+    model = KNN(k=5)
+    model.fit(X_train_scaled, y_train)
 
-    custom_knn = KNN(k=5)
-
-    custom_knn.fit(
-        X_train_scaled,
-        y_train
-    )
-
-    custom_knn_predictions = custom_knn.predict(
-        X_test_scaled
-    )
+    predictions = model.predict(X_test_scaled)
 
     results.append(
         evaluate_model(
             "Custom KNN",
             y_test,
-            custom_knn_predictions,
+            predictions,
             labels
         )
     )
@@ -78,52 +84,47 @@ def main():
     # 2. Scikit-learn KNN
     print("\nTraining Scikit-learn KNN...")
 
-    sklearn_knn = KNeighborsClassifier(
-        n_neighbors=5
-    )
+    model = KNeighborsClassifier(n_neighbors=5)
+    model.fit(X_train_scaled, y_train)
 
-    sklearn_knn.fit(
-        X_train_scaled,
-        y_train
-    )
-
-    sklearn_knn_predictions = sklearn_knn.predict(
-        X_test_scaled
-    )
+    predictions = model.predict(X_test_scaled)
 
     results.append(
         evaluate_model(
             "Sklearn KNN",
             y_test,
-            sklearn_knn_predictions,
+            predictions,
             labels
         )
     )
 
-    # 3. Our Decision Tree implementation
-    print("\nTraining Decision Tree from scratch...")
+    # 3. Custom Decision Tree
+    print("\nTraining Custom Decision Tree...")
 
-    custom_tree = DecisionTree(
+    model = DecisionTree(
         max_depth=12,
         min_samples_split=10,
         min_samples_leaf=5,
-        max_thresholds=20
+        max_thresholds=16,
+        random_state=42
     )
 
-    custom_tree.fit(
-        X_train,
-        y_train
+    start_time = time.perf_counter()
+
+    model.fit(X_train, y_train)
+
+    print(
+        f"Custom Decision Tree training time: "
+        f"{time.perf_counter() - start_time:.2f} seconds"
     )
 
-    custom_tree_predictions = custom_tree.predict(
-        X_test
-    )
+    predictions = model.predict(X_test)
 
     results.append(
         evaluate_model(
             "Custom Decision Tree",
             y_test,
-            custom_tree_predictions,
+            predictions,
             labels
         )
     )
@@ -131,7 +132,7 @@ def main():
     # 4. Scikit-learn Decision Tree
     print("\nTraining Scikit-learn Decision Tree...")
 
-    sklearn_tree = DecisionTreeClassifier(
+    model = DecisionTreeClassifier(
         criterion="gini",
         max_depth=12,
         min_samples_split=10,
@@ -139,25 +140,78 @@ def main():
         random_state=42
     )
 
-    sklearn_tree.fit(
-        X_train,
-        y_train
-    )
+    model.fit(X_train, y_train)
 
-    sklearn_tree_predictions = sklearn_tree.predict(
-        X_test
-    )
+    predictions = model.predict(X_test)
 
     results.append(
         evaluate_model(
             "Sklearn Decision Tree",
             y_test,
-            sklearn_tree_predictions,
+            predictions,
             labels
         )
     )
 
-    # Save comparison results
+    # 5. Custom Random Forest
+    print("\nTraining Custom Random Forest...")
+
+    model = RandomForest(
+        n_estimators=12,
+        max_depth=10,
+        min_samples_split=10,
+        min_samples_leaf=5,
+        max_thresholds=12,
+        random_state=42
+    )
+
+    start_time = time.perf_counter()
+
+    model.fit(X_train, y_train)
+
+    print(
+        f"Custom Random Forest training time: "
+        f"{time.perf_counter() - start_time:.2f} seconds"
+    )
+
+    predictions = model.predict(X_test)
+
+    results.append(
+        evaluate_model(
+            "Custom Random Forest",
+            y_test,
+            predictions,
+            labels
+        )
+    )
+
+    # 6. Scikit-learn Random Forest
+    print("\nTraining Scikit-learn Random Forest...")
+
+    model = RandomForestClassifier(
+        n_estimators=100,
+        max_depth=10,
+        min_samples_split=10,
+        min_samples_leaf=5,
+        max_features="sqrt",
+        random_state=42,
+        n_jobs=-1
+    )
+
+    model.fit(X_train, y_train)
+
+    predictions = model.predict(X_test)
+
+    results.append(
+        evaluate_model(
+            "Sklearn Random Forest",
+            y_test,
+            predictions,
+            labels
+        )
+    )
+
+    # Save comparison table
     os.makedirs("results", exist_ok=True)
 
     results_df = pd.DataFrame(results)
@@ -167,10 +221,10 @@ def main():
         index=False
     )
 
-    print("\nMODEL COMPARISON")
+    print("\n\nFINAL MODEL COMPARISON")
     print(results_df.to_string(index=False))
 
-    # Comparison graph
+    # Plot comparison
     metrics = [
         "Accuracy",
         "Precision",
@@ -180,13 +234,16 @@ def main():
 
     results_df.set_index("Model")[metrics].plot(
         kind="bar",
-        figsize=(11, 6)
+        figsize=(13, 7)
     )
 
-    plt.title("LiDAR Classification Model Comparison")
+    plt.title(
+        "LiDAR Object Classification - Model Comparison"
+    )
+
     plt.ylabel("Score")
     plt.ylim(0, 1.05)
-    plt.xticks(rotation=20)
+    plt.xticks(rotation=25)
     plt.legend(loc="lower right")
     plt.tight_layout()
 
@@ -196,7 +253,8 @@ def main():
 
     plt.close()
 
-    print("\nAll results saved in the results folder.")
+    print("\nComparison saved to results/perception_comparison.csv")
+    print("Graphs saved in the results folder.")
 
 
 if __name__ == "__main__":

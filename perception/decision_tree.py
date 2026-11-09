@@ -9,14 +9,18 @@ class DecisionTree:
         max_depth=12,
         min_samples_split=10,
         min_samples_leaf=5,
-        max_thresholds=20
+        max_thresholds=32,
+        max_features=None,
+        random_state=42
     ):
 
         self.max_depth = max_depth
         self.min_samples_split = min_samples_split
         self.min_samples_leaf = min_samples_leaf
         self.max_thresholds = max_thresholds
+        self.max_features = max_features
 
+        self.rng = np.random.default_rng(random_state)
         self.tree = None
 
     def gini(self, labels):
@@ -33,6 +37,35 @@ class DecisionTree:
 
         return 1 - np.sum(probabilities ** 2)
 
+    def majority_class(self, y):
+
+        labels, counts = np.unique(
+            y,
+            return_counts=True
+        )
+
+        return labels[np.argmax(counts)]
+
+    def select_features(self, n_features):
+
+        if self.max_features is None:
+            count = n_features
+
+        elif self.max_features == "sqrt":
+            count = max(1, int(np.sqrt(n_features)))
+
+        elif isinstance(self.max_features, int):
+            count = min(n_features, self.max_features)
+
+        else:
+            raise ValueError("Invalid max_features setting")
+
+        return self.rng.choice(
+            n_features,
+            size=count,
+            replace=False
+        )
+
     def best_split(self, X, y):
 
         best_gain = 0
@@ -43,43 +76,37 @@ class DecisionTree:
 
         n_samples, n_features = X.shape
 
-        for feature in range(n_features):
+        candidate_features = self.select_features(
+            n_features
+        )
 
-            values = np.unique(X[:, feature])
+        for feature in candidate_features:
 
-            if len(values) < 2:
+            values = X[:, feature]
+
+            unique_values = np.unique(values)
+
+            if len(unique_values) < 2:
                 continue
 
-            # Limit candidate thresholds for efficiency
-            if len(values) > self.max_thresholds + 1:
+            # Candidate thresholds based on quantiles
+            quantiles = np.linspace(
+                0.02,
+                0.98,
+                self.max_thresholds
+            )
 
-                thresholds = np.quantile(
-                    values,
-                    np.linspace(
-                        0,
-                        1,
-                        self.max_thresholds + 2
-                    )[1:-1]
-                )
-
-                thresholds = np.unique(thresholds)
-
-            else:
-
-                thresholds = (
-                    values[:-1] + values[1:]
-                ) / 2
+            thresholds = np.unique(
+                np.quantile(values, quantiles)
+            )
 
             for threshold in thresholds:
 
-                left_mask = (
-                    X[:, feature] <= threshold
-                )
-
+                left_mask = values <= threshold
                 right_mask = ~left_mask
 
                 left_count = np.sum(left_mask)
-                right_count = np.sum(right_mask)
+                right_count = n_samples - left_count
 
                 if (
                     left_count < self.min_samples_leaf
@@ -105,20 +132,10 @@ class DecisionTree:
 
         return best_feature, best_threshold, best_gain
 
-    def majority_class(self, y):
-
-        labels, counts = np.unique(
-            y,
-            return_counts=True
-        )
-
-        return labels[np.argmax(counts)]
-
     def build_tree(self, X, y, depth):
 
         prediction = self.majority_class(y)
 
-        # Stopping conditions
         if (
             depth >= self.max_depth
             or len(y) < self.min_samples_split
@@ -170,10 +187,11 @@ class DecisionTree:
             0
         )
 
+        return self
+
     def predict_one(self, sample, node):
 
         if "feature" not in node:
-
             return node["prediction"]
 
         feature = node["feature"]
