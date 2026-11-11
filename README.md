@@ -284,12 +284,39 @@ robot_perception_learning/
 └── models/
 ```
 
+## Demo
+
+The following GIF shows a scripted movement sequence in the interactive 2D LiDAR simulation. It visualizes the robot's movement and simulated LiDAR scans; it is not a demonstration of the autonomous navigation planner.
+
+![Scripted LiDAR simulation demo](assets/lidar-demo-small.gif)
+
+## 5.1 Experimental Visualizations
+
+### Perception Model Comparison
+
+![Perception model comparison](results/perception_model_comparison.png)
+
+### Q-Learning Training Rewards
+
+![Q-learning training rewards](results/frontier_q_learning_rewards.png)
+
+### Q-Learning Exploration Coverage
+
+![Q-learning exploration coverage](results/frontier_q_learning_coverage.png)
+
+### Frontier-Based Exploration
+
+![Frontier exploration goals](results/frontier_goals.png)
+
+---
+
 ## 6. Installation and Setup
 
 ### Prerequisites
 
 - Python 3.10 or later.
 - Git.
+- FFmpeg (optional; required only to regenerate the demo GIF).
 
 ### Clone the repository
 
