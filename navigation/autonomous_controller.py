@@ -11,7 +11,9 @@ class AutonomousController:
         algorithm = algorithm.lower()
 
         if algorithm not in ("astar", "bfs"):
-            raise ValueError("Algorithm must be 'astar' or 'bfs'.")
+            raise ValueError(
+                "Algorithm must be 'astar' or 'bfs'."
+            )
 
         self.algorithm = algorithm
         self.reset()
@@ -25,53 +27,125 @@ class AutonomousController:
         self.actions_taken = 0
         self.frontiers_reached = 0
 
-        self.safety_controller = FuzzySafetyController(max_range=180)
+        self.safety_controller = FuzzySafetyController(
+            max_range=180
+        )
 
         self.safety_checks = 0
         self.safety_overrides = 0
         self.safety_stops = 0
 
-        # Obstacle escape state
+        # Temporarily rejected movement cells only.
+        # Frontier goals are no longer suppressed.
+        self.temporary_blocked_cells = {}
+        self.block_memory_duration = 30
+
+        # Obstacle escape state.
         self.escape_turn_action = None
         self.escape_turn_steps = 0
         self.max_escape_turn_steps = 4
         self.escape_clearance = 85
         self.escape_switched_direction = False
 
-        # Move forward briefly after finding a clear direction.
+        # Brief forward movement after escaping.
         self.escape_forward_steps = 0
 
     def get_robot_cell(self, env):
         gx, gy = env.world_to_grid(env.x, env.y)
         return gy, gx
 
-    def get_sector_distance(self, env, center_angle, offsets):
+    def get_sector_distance(
+        self,
+        env,
+        center_angle,
+        offsets
+    ):
         readings = [
-            env.measure_distance((center_angle + offset) % 360)
+            env.measure_distance(
+                (center_angle + offset) % 360
+            )
             for offset in offsets
         ]
+
         return min(readings)
 
     def get_lidar_distances(self, env):
         front_distance = self.get_sector_distance(
-            env, env.heading, (-25, -15, 0, 15, 25)
+            env,
+            env.heading,
+            (-25, -15, 0, 15, 25)
         )
 
         left_distance = self.get_sector_distance(
-            env, env.heading - 90, (-15, 0, 15)
+            env,
+            env.heading - 90,
+            (-15, 0, 15)
         )
 
         right_distance = self.get_sector_distance(
-            env, env.heading + 90, (-15, 0, 15)
+            env,
+            env.heading + 90,
+            (-15, 0, 15)
         )
 
-        return front_distance, left_distance, right_distance
+        return (
+            front_distance,
+            left_distance,
+            right_distance
+        )
+
+    def remember_blocked_cell(self, cell):
+        if cell is None:
+            return
+
+        expiry = (
+            self.actions_taken
+            + self.block_memory_duration
+        )
+
+        self.temporary_blocked_cells[cell] = expiry
+
+    def get_planning_grid(self, env, start):
+        # Work on a copy; never modify the real occupancy map.
+        planning_grid = env.occupancy.copy()
+
+        # Remove expired movement blocks.
+        expired_cells = [
+            cell
+            for cell, expiry
+            in self.temporary_blocked_cells.items()
+            if self.actions_taken >= expiry
+        ]
+
+        for cell in expired_cells:
+            del self.temporary_blocked_cells[cell]
+
+        rows, cols = planning_grid.shape
+
+        # Temporarily avoid only cells rejected by safety.
+        for row, col in self.temporary_blocked_cells:
+            if (
+                0 <= row < rows
+                and 0 <= col < cols
+                and (row, col) != start
+            ):
+                planning_grid[row, col] = -1
+
+        return planning_grid
 
     def plan_route(self, env):
         start = self.get_robot_cell(env)
 
+        planning_grid = self.get_planning_grid(
+            env,
+            start
+        )
+
+        # Do not suppress frontier goals.
+        # A rejected movement cell does not mean the
+        # overall frontier is unreachable.
         result = plan_frontier_path(
-            env.occupancy,
+            planning_grid,
             start,
             algorithm=self.algorithm
         )
@@ -79,6 +153,7 @@ class AutonomousController:
         self.path = result["path"] or []
         self.goal = result["goal"]
         self.next_index = 1
+
         self.replans += 1
 
         return result
@@ -86,8 +161,12 @@ class AutonomousController:
     def get_planned_action(self, env):
         current_cell = self.get_robot_cell(env)
 
-        if self.goal is not None and current_cell == self.goal:
+        if (
+            self.goal is not None
+            and current_cell == self.goal
+        ):
             self.frontiers_reached += 1
+
             self.path = []
             self.goal = None
             self.next_index = 1
@@ -99,8 +178,13 @@ class AutonomousController:
                 return None
 
         elif self.next_index < len(self.path):
-            expected_previous_cell = self.path[self.next_index - 1]
-            expected_next_cell = self.path[self.next_index]
+            expected_previous_cell = (
+                self.path[self.next_index - 1]
+            )
+
+            expected_next_cell = (
+                self.path[self.next_index]
+            )
 
             if current_cell == expected_next_cell:
                 self.next_index += 1
@@ -120,16 +204,20 @@ class AutonomousController:
         if self.next_index >= len(self.path):
             return None
 
-        target_row, target_col = self.path[self.next_index]
+        target_row, target_col = (
+            self.path[self.next_index]
+        )
 
         target_x, target_y = env.grid_to_world(
-            target_col, target_row
+            target_col,
+            target_row
         )
 
         current_row, current_col = current_cell
 
         current_x, current_y = env.grid_to_world(
-            current_col, current_row
+            current_col,
+            current_row
         )
 
         dx = target_x - current_x
@@ -172,39 +260,42 @@ class AutonomousController:
 
             self.safety_checks += 1
 
-            # A clear direction has been found.
             if front_distance >= self.escape_clearance:
+
                 self.escape_turn_action = None
                 self.escape_turn_steps = 0
                 self.escape_switched_direction = False
 
-                # Move away from the obstacle before replanning.
                 self.escape_forward_steps = 2
-
                 self.clear_route()
 
                 self.actions_taken += 1
                 return 0
 
-            # Continue turning in the same direction.
-            if self.escape_turn_steps < self.max_escape_turn_steps:
+            if (
+                self.escape_turn_steps
+                < self.max_escape_turn_steps
+            ):
                 self.escape_turn_steps += 1
                 self.actions_taken += 1
+
                 return self.escape_turn_action
 
-            # First direction did not work. Try the other side.
             if not self.escape_switched_direction:
+
                 self.escape_turn_action = (
-                    3 if self.escape_turn_action == 2 else 2
+                    3
+                    if self.escape_turn_action == 2
+                    else 2
                 )
 
                 self.escape_turn_steps = 0
                 self.escape_switched_direction = True
 
                 self.actions_taken += 1
+
                 return self.escape_turn_action
 
-            # Neither direction produced enough clearance.
             self.safety_stops += 1
 
             self.escape_turn_action = None
@@ -217,7 +308,7 @@ class AutonomousController:
             return None
 
         # --------------------------------------------------
-        # 2. Briefly move forward after a successful escape.
+        # 2. Brief forward movement after a successful escape.
         # --------------------------------------------------
 
         if self.escape_forward_steps > 0:
@@ -231,19 +322,30 @@ class AutonomousController:
             self.safety_checks += 1
 
             if front_distance >= self.escape_clearance:
+
                 self.escape_forward_steps -= 1
                 self.actions_taken += 1
+
                 return 0
 
-            # The path became blocked again.
             self.escape_forward_steps = 0
 
+            left_distance = self.get_sector_distance(
+                env,
+                env.heading - 90,
+                (-15, 0, 15)
+            )
+
+            right_distance = self.get_sector_distance(
+                env,
+                env.heading + 90,
+                (-15, 0, 15)
+            )
+
             self.escape_turn_action = (
-                2 if self.get_sector_distance(
-                    env, env.heading - 90, (-15, 0, 15)
-                ) >= self.get_sector_distance(
-                    env, env.heading + 90, (-15, 0, 15)
-                ) else 3
+                2
+                if left_distance >= right_distance
+                else 3
             )
 
             self.escape_turn_steps = 0
@@ -253,6 +355,7 @@ class AutonomousController:
             self.clear_route()
 
             self.actions_taken += 1
+
             return self.escape_turn_action
 
         # --------------------------------------------------
@@ -280,18 +383,35 @@ class AutonomousController:
 
             self.safety_checks += 1
 
-            safety_result = self.safety_controller.get_action(
-                front_distance,
-                left_distance,
-                right_distance
+            safety_result = (
+                self.safety_controller.get_action(
+                    front_distance,
+                    left_distance,
+                    right_distance
+                )
             )
 
             safety_action = safety_result["action"]
 
             if safety_action != 0:
+
                 final_action = safety_action
                 self.safety_overrides += 1
 
+                # Remember only the immediate cell that
+                # the robot was attempting to enter.
+                if self.next_index < len(self.path):
+
+                    blocked_cell = (
+                        self.path[self.next_index]
+                    )
+
+                    self.remember_blocked_cell(
+                        blocked_cell
+                    )
+
+                # Keep the frontier available for a new
+                # route after the obstacle escape.
                 self.escape_turn_action = safety_action
                 self.escape_turn_steps = 0
                 self.escape_switched_direction = False
@@ -306,7 +426,10 @@ class AutonomousController:
         return {
             "algorithm": self.algorithm.upper(),
             "goal": self.goal,
-            "path_length": max(0, len(self.path) - 1),
+            "path_length": max(
+                0,
+                len(self.path) - 1
+            ),
             "replans": self.replans,
             "actions_taken": self.actions_taken,
             "frontiers_reached": self.frontiers_reached,
@@ -315,5 +438,10 @@ class AutonomousController:
             "safety_stops": self.safety_stops,
             "escape_turn_steps": self.escape_turn_steps,
             "escape_forward_steps": self.escape_forward_steps,
-            "escape_active": self.escape_turn_action is not None
+            "escape_active": (
+                self.escape_turn_action is not None
+            ),
+            "temporarily_blocked_cells": len(
+                self.temporary_blocked_cells
+            )
         }

@@ -1,4 +1,3 @@
-
 class FuzzySafetyController:
     """
     Fuzzy-logic obstacle avoidance controller.
@@ -47,9 +46,25 @@ class FuzzySafetyController:
             "far": self.clamp(far)
         }
 
-    def get_action(self, front_distance,
-                   left_distance, right_distance):
+    def choose_turn(self, left_distance, right_distance):
+        if left_distance > right_distance:
+            action = 2
 
+        elif right_distance > left_distance:
+            action = 3
+
+        else:
+            action = 2 if self.last_turn == 3 else 3
+
+        self.last_turn = action
+        return action
+
+    def get_action(
+        self,
+        front_distance,
+        left_distance,
+        right_distance
+    ):
         front = self.memberships(front_distance)
         left = self.memberships(left_distance)
         right = self.memberships(right_distance)
@@ -110,25 +125,17 @@ class FuzzySafetyController:
             3: right_score
         }
 
-        # SAFETY FALLBACK:
-        # If the front is blocked and neither side has
-        # sufficient clearance, do not move forward.
-        if front["near"] >= 0.5 and max(
-            left_score, right_score
-        ) == 0:
+        # If no fuzzy rule supports any action,
+        # do not automatically choose forward.
+        if max(scores.values()) <= 0:
 
-            if left_distance > right_distance:
-                action = 2
-
-            elif right_distance > left_distance:
-                action = 3
-
+            if front_distance < 85:
+                action = self.choose_turn(
+                    left_distance,
+                    right_distance
+                )
             else:
-                # Alternate direction when both sides
-                # have exactly equal clearance.
-                action = 2 if self.last_turn == 3 else 3
-
-            self.last_turn = action
+                action = 0
 
             return {
                 "action": action,
@@ -152,9 +159,9 @@ class FuzzySafetyController:
                 action = 0
 
             else:
-                action = (
-                    2 if left_distance >= right_distance
-                    else 3
+                action = self.choose_turn(
+                    left_distance,
+                    right_distance
                 )
 
         else:

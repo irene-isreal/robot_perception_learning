@@ -1,22 +1,34 @@
 
 import random
-import numpy as np
 
 from reinforcement_learning.environment import ExplorationEnvironment
 from navigation.autonomous_controller import AutonomousController
+from navigation.grid_planner import get_frontier_cells
+
+
+SEED = 69
+ALGORITHM = "bfs"
+MAX_STEPS = 250
 
 
 def main():
 
-    seed = 44
-
-    random.seed(seed)
-    np.random.seed(seed)
+    # Match the random seed and initialization order
+    # used in evaluate_fuzzy_planners.py.
+    random.seed(SEED)
 
     env = ExplorationEnvironment()
-    controller = AutonomousController(algorithm="bfs")
+    controller = AutonomousController(
+        algorithm=ALGORITHM
+    )
 
-    print("\n========== COLLISION DIAGNOSTIC ==========\n")
+    print("\n========== EXPLORATION DIAGNOSTIC ==========")
+    print("Seed:", SEED)
+    print("Algorithm:", ALGORITHM.upper())
+    print("Starting position:", (env.x, env.y))
+    print("Starting heading:", env.heading)
+    print("Maximum steps:", MAX_STEPS)
+    print()
 
     action_names = {
         0: "FORWARD",
@@ -25,7 +37,11 @@ def main():
         3: "RIGHT"
     }
 
-    for step in range(150):
+    previous_goal = None
+    previous_replans = 0
+    previous_frontiers = 0
+
+    for step in range(MAX_STEPS):
 
         before_position = (env.x, env.y)
         before_heading = env.heading
@@ -36,48 +52,88 @@ def main():
 
         action = controller.get_action(env)
 
+        status = controller.get_status()
+
+        current_goal = status["goal"]
+        frontier_count = len(
+            get_frontier_cells(env.occupancy)
+        )
+
         if action is None:
-            print("No reachable frontier.")
+
+            print(
+                f"Step {step + 1:03d} | "
+                "NO ACTION / NO REACHABLE FRONTIER"
+            )
+
+            print("Controller status:", status)
             break
 
         _, reward, done, info = env.step(action)
 
+        goal_changed = current_goal != previous_goal
+
+        replan_changed = (
+            status["replans"] != previous_replans
+        )
+
+        frontier_reached = (
+            status["frontiers_reached"] != previous_frontiers
+        )
+
+        # Print every step so turns and movement can be traced.
         print(
             f"Step {step + 1:03d} | "
-            f"Position: ({before_position[0]:.1f}, "
+            f"Pos: ({before_position[0]:.1f}, "
             f"{before_position[1]:.1f}) | "
             f"Heading: {before_heading:.0f} | "
-            f"Front sector: {front} | "
-            f"Left sector: {left} | "
-            f"Right sector: {right} | "
+            f"F/L/R: {front}/{left}/{right} | "
             f"Action: {action_names[action]} | "
+            f"Goal: {current_goal} | "
+            f"Frontiers: {frontier_count} | "
+            f"Visited: {len(env.visited_cells)} | "
+            f"Replans: {status['replans']} | "
+            f"Overrides: {status['safety_overrides']} | "
             f"Reward: {reward:.2f}"
         )
 
+        if (
+            goal_changed
+            or replan_changed
+            or frontier_reached
+        ):
+            print(
+                "    EVENT | "
+                f"Goal changed: {goal_changed} | "
+                f"Replanned: {replan_changed} | "
+                f"Frontier reached: {frontier_reached} | "
+                f"New goal: {current_goal}"
+            )
+
+        previous_goal = current_goal
+        previous_replans = status["replans"]
+        previous_frontiers = status["frontiers_reached"]
+
         if env.collisions > 0:
-
             print("\n!!! COLLISION DETECTED !!!")
-            print(f"Step: {step + 1}")
-            print(f"Position before collision: {before_position}")
-            print(f"Heading before collision: {before_heading}")
-            print(
-                f"Sector readings: "
-                f"F={front}, L={left}, R={right}"
-            )
-            print(f"Action: {action_names[action]}")
-            print(
-                f"Position after step: "
-                f"({env.x}, {env.y})"
-            )
-            print(
-                f"Safety status: {controller.get_status()}"
-            )
-
             break
 
         if done:
-            print("\nEpisode ended without collision.")
+            print("\nEpisode ended.")
             break
+
+    final_status = controller.get_status()
+
+    print("\n========== FINAL DIAGNOSTIC SUMMARY ==========")
+    print("Final position:", (env.x, env.y))
+    print("Final heading:", env.heading)
+    print("Steps:", env.steps)
+    print("Visited cells:", len(env.visited_cells))
+    print("Remaining frontiers:", len(
+        get_frontier_cells(env.occupancy)
+    ))
+    print("Collisions:", env.collisions)
+    print("Controller status:", final_status)
 
     print("\n========== DIAGNOSTIC COMPLETE ==========")
 

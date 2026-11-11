@@ -13,12 +13,33 @@ START_SEED = 42
 ALGORITHMS = ["bfs", "astar"]
 
 
+def get_true_free_cells(env):
+    """
+    Return all grid cells whose centres are valid robot positions.
+    Cell coordinates use (gx, gy), matching env.visited_cells.
+    """
+
+    true_free_cells = set()
+
+    for gy in range(env.grid_rows):
+        for gx in range(env.grid_cols):
+
+            x, y = env.grid_to_world(gx, gy)
+
+            if env.is_valid_position(x, y):
+                true_free_cells.add((gx, gy))
+
+    return true_free_cells
+
+
 def run_episode(algorithm, seed):
 
     random.seed(seed)
 
     env = ExplorationEnvironment()
     controller = AutonomousController(algorithm=algorithm)
+
+    true_free_cells = get_true_free_cells(env)
 
     done = False
 
@@ -34,11 +55,16 @@ def run_episode(algorithm, seed):
     status = controller.get_status()
 
     visited_cells = len(env.visited_cells)
-    total_cells = env.grid_rows * env.grid_cols
+
+    visited_free_cells = len(
+        env.visited_cells.intersection(true_free_cells)
+    )
 
     coverage = (
-        visited_cells / total_cells
-    ) * 100
+        visited_free_cells / len(true_free_cells) * 100
+        if true_free_cells
+        else 0
+    )
 
     safety_checks = status["safety_checks"]
     safety_overrides = status["safety_overrides"]
@@ -54,6 +80,8 @@ def run_episode(algorithm, seed):
         "seed": seed,
         "coverage": coverage,
         "visited_cells": visited_cells,
+        "visited_free_cells": visited_free_cells,
+        "true_free_cells": len(true_free_cells),
         "collisions": env.collisions,
         "collision_episode": int(env.collisions > 0),
         "frontiers_reached": status["frontiers_reached"],
@@ -84,8 +112,10 @@ def calculate_statistics(results, metric):
 def print_summary(all_results):
 
     metrics = [
-        ("coverage", "Coverage (%)"),
-        ("visited_cells", "Visited cells"),
+        ("coverage", "True free-space coverage (%)"),
+        ("visited_cells", "All visited grid cells"),
+        ("visited_free_cells", "Visited traversable cells"),
+        ("true_free_cells", "Total traversable cells"),
         ("collisions", "Collisions"),
         ("collision_episode", "Episodes with collisions"),
         ("frontiers_reached", "Frontiers reached"),
@@ -136,6 +166,8 @@ def save_results(all_results):
         "seed",
         "coverage",
         "visited_cells",
+        "visited_free_cells",
+        "true_free_cells",
         "collisions",
         "collision_episode",
         "frontiers_reached",
@@ -183,13 +215,14 @@ def main():
 
             print(
                 "{} | Seed: {} | Coverage: {:.2f}% | "
-                "Visited: {} | Collisions: {} | "
-                "Frontiers: {} | Overrides: {}/{} | "
-                "Stops: {}".format(
+                "Visited: {} | Free visited: {} | "
+                "Collisions: {} | Frontiers: {} | "
+                "Overrides: {}/{} | Stops: {}".format(
                     algorithm.upper(),
                     seed,
                     result["coverage"],
                     result["visited_cells"],
+                    result["visited_free_cells"],
                     result["collisions"],
                     result["frontiers_reached"],
                     result["safety_overrides"],

@@ -1,4 +1,3 @@
-
 from collections import deque
 import heapq
 
@@ -106,6 +105,7 @@ def astar_path(grid, start, goal):
                 parent[neighbor] = current
 
                 priority = tentative_cost + heuristic(neighbor)
+
                 heapq.heappush(
                     open_heap,
                     (priority, tentative_cost, neighbor)
@@ -159,33 +159,51 @@ def select_frontier(
     grid,
     start,
     algorithm="astar",
-    information_weight=0.75
+    information_weight=0.75,
+    blocked_frontiers=None
 ):
     frontiers = get_frontier_cells(grid)
 
-    if not frontiers:
+    if blocked_frontiers is None:
+        blocked_frontiers = set()
+    else:
+        blocked_frontiers = set(blocked_frontiers)
+
+    # Exclude recently rejected frontier goals.
+    available_frontiers = [
+        frontier
+        for frontier in frontiers
+        if frontier not in blocked_frontiers
+        and frontier != start
+    ]
+
+    if not available_frontiers:
         return None
 
     best_goal = None
     best_path = None
     best_score = float("-inf")
 
-    for frontier in frontiers:
-        if frontier == start:
-            continue
+    for frontier in available_frontiers:
 
         if algorithm.lower() == "bfs":
             path = bfs_path(grid, start, frontier)
+
         elif algorithm.lower() == "astar":
             path = astar_path(grid, start, frontier)
+
         else:
-            raise ValueError("Algorithm must be 'bfs' or 'astar'.")
+            raise ValueError(
+                "Algorithm must be 'bfs' or 'astar'."
+            )
 
         if path is None:
             continue
 
         path_length = len(path) - 1
-        information_gain = count_unknown_neighbors(grid, frontier)
+        information_gain = count_unknown_neighbors(
+            grid, frontier
+        )
 
         score = (
             information_weight * information_gain
@@ -204,14 +222,24 @@ def select_frontier(
         "algorithm": algorithm.upper(),
         "goal": best_goal,
         "path": best_path,
-        "frontier_count": len(frontiers),
+        "frontier_count": len(available_frontiers),
         "path_length": len(best_path) - 1,
         "success": True,
     }
 
 
-def plan_frontier_path(grid, start, algorithm="astar"):
-    result = select_frontier(grid, start, algorithm)
+def plan_frontier_path(
+    grid,
+    start,
+    algorithm="astar",
+    blocked_frontiers=None
+):
+    result = select_frontier(
+        grid,
+        start,
+        algorithm=algorithm,
+        blocked_frontiers=blocked_frontiers
+    )
 
     if result is None:
         return {
