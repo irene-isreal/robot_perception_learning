@@ -1,132 +1,86 @@
 # Autonomous Indoor Exploration Robot Using LiDAR, Machine Learning and Reinforcement Learning
 
-A simulation-based autonomous robotics project that explores an indoor environment using simulated LiDAR perception, machine learning, frontier-based navigation, reinforcement learning, and fuzzy-logic obstacle avoidance.
+A simulation-based robotics project exploring indoor robot perception, autonomous navigation, and exploration using simulated LiDAR, machine learning, reinforcement learning, classical path planning, and fuzzy-logic safety control.
 
 ## 1. Project Overview
 
-Autonomous indoor exploration requires a robot to perceive its surroundings, identify obstacles, build an understanding of its environment, and navigate safely through unknown spaces.
+This project investigates different techniques used in autonomous indoor robotics through a collection of related simulation and experimental components.
 
-This project develops a 2D simulated indoor robot that uses LiDAR distance measurements to perceive its surroundings and explore an environment containing walls, furniture, and other obstacles.
+A 2D indoor environment containing walls, furniture, and obstacles is used to study LiDAR-based sensing, synthetic scan classification, occupancy-grid mapping, and autonomous navigation.
 
-The project investigates multiple approaches to autonomous exploration, including classical machine learning, Q-learning, BFS, A*, and fuzzy-logic safety control.
+The project is organized into four main components:
 
-The main objective is to study how different perception and navigation techniques can be integrated into an autonomous exploration system and evaluated under different starting conditions.
+1. **Interactive LiDAR simulation:** A manually controlled robot demonstrating LiDAR sensing and visualization.
+2. **Machine-learning perception:** Classification of synthetic LiDAR patterns using custom and scikit-learn models.
+3. **Autonomous navigation:** Frontier-based exploration using BFS/A* path planning and fuzzy-logic safety control.
+4. **Reinforcement learning:** Q-learning experiments for autonomous exploration.
+
+These components are implemented as separate experiments. The manual LiDAR demonstration, synthetic perception experiment, Q-learning experiment, and final BFS/A* navigation evaluation should not be interpreted as one fully integrated pipeline.
 
 **Project type:** Simulation-based robotics and AI  
-**Environment:** 2D indoor environment  
 **Language:** Python  
-**Primary libraries:** NumPy, Pygame, scikit-learn, Matplotlib, Pandas
+**Environment:** 2D indoor simulation
 
-## 2. Key Features
-
-- Simulated indoor environment containing walls, furniture, and obstacles.
-- 2D LiDAR simulation with ray casting and distance measurements.
-- Synthetic LiDAR dataset generation for object classification.
-- Custom implementations of K-Nearest Neighbours, Decision Tree, and Random Forest.
-- Comparison with scikit-learn machine learning implementations.
-- Q-learning-based autonomous exploration.
-- Occupancy-grid mapping and frontier-based exploration.
-- BFS and A* path-planning algorithms.
-- Fuzzy-logic-based obstacle avoidance and safety control.
-- Automated multi-seed evaluation of navigation performance.
-- Collision, exploration coverage, frontier, and safety metrics.
-
-## 3. System Architecture
-
-The system is divided into the following major components:
-
-1. **Environment Simulation:** Creates the indoor environment and manages robot movement and obstacle interactions.
-2. **LiDAR Perception:** Simulates laser scans using ray casting and generates distance measurements.
-3. **Machine Learning:** Classifies synthetic LiDAR scan patterns into object categories.
-4. **Mapping:** Maintains an occupancy grid representing occupied, free, and unexplored areas.
-5. **Navigation:** Selects exploration targets and plans paths using BFS or A*.
-6. **Safety Control:** Uses fuzzy logic to evaluate nearby obstacles and override unsafe movement decisions.
-7. **Reinforcement Learning:** Implements Q-learning as an alternative exploration approach.
-8. **Evaluation:** Measures exploration coverage, collisions, safety overrides, and navigation performance.
-
-### Overall workflow
-
-```text
-        Indoor Environment
-                |
-                v
-          LiDAR Simulation
-                |
-                v
-        Distance Measurements
-                |
-          +-----+------+
-          |            |
-          v            v
-     ML Perception   Occupancy Grid
-          |            |
-          v            v
-     Object Classes  Frontier Detection
-                       |
-                       v
-                BFS / A* Planner
-                       |
-                       v
-                Fuzzy Safety Layer
-                       |
-                       v
-                 Robot Movement
-                       |
-                       v
-              Environment Update
-                       |
-                       +----> Repeat
-```
-
-Q-learning is implemented and evaluated as an additional exploration approach.
-
-## 4. Technologies Used
+## 2. Technologies Used
 
 | Technology | Purpose |
 |---|---|
 | Python | Core implementation |
 | Pygame | 2D simulation and visualization |
-| NumPy | Numerical operations and occupancy grids |
-| scikit-learn | Machine learning baselines and evaluation |
-| Pandas | Dataset and experiment management |
-| Matplotlib | Training and evaluation visualizations |
+| NumPy | Numerical operations |
+| scikit-learn | Machine-learning baselines |
+| Pandas | Data handling |
+| Matplotlib | Experiment visualizations |
 | pytest | Testing |
 
-## 5. LiDAR Simulation
+## 3. Project Components
 
-The robot uses simulated LiDAR to measure distances to nearby obstacles.
+### A. Interactive LiDAR Simulation
 
-Ray casting is used to simulate laser beams travelling through the environment. Each ray returns the distance to the nearest detected obstacle, subject to a maximum sensing range.
+**Entry point:** `main.py`
 
-The interactive simulation uses:
+This component provides a manually controlled robot in a simulated indoor environment.
 
+The robot can move and rotate using keyboard inputs while simulated LiDAR rays measure distances to surrounding obstacles.
+
+Features:
+- 2D indoor environment containing walls and furniture.
+- Ray-casting-based LiDAR simulation.
 - 180 LiDAR rays.
-- Maximum range of 350 pixels.
-- A 2D indoor environment with walls and furniture.
+- Maximum sensing range of 350 pixels.
+- Real-time visualization of the robot, environment, and LiDAR scans.
 
-These measurements provide the robot with information about its surroundings.
+**Controls**
 
-## 6. Machine Learning-Based Perception
+| Key | Action |
+|---|---|
+| W | Move forward |
+| S | Move backward |
+| A | Move left |
+| D | Move right |
+| Q | Rotate left |
+| E | Rotate right |
+| ESC | Exit |
 
-A synthetic dataset is generated using simulated LiDAR scans.
+This is a manual sensing and visualization demonstration. It does not launch the autonomous navigation controller.
 
-The dataset contains four object categories:
+### B. Machine-Learning-Based LiDAR Perception
 
+**Entry point:** `experiments/train_perception.py`
+
+This component investigates whether machine-learning algorithms can classify object categories from simulated LiDAR distance patterns.
+
+A synthetic dataset is generated using simulated object scenarios.
+
+The four classes are:
 - Person
 - Box
 - Shelf
 - Free space
 
-The perception component extracts features from LiDAR measurements, including:
+Features extracted from LiDAR scans include normalized distance readings, statistical measurements, sector-based features, hit masks, and distance differences.
 
-- Normalized distance readings.
-- Statistical features.
-- Sector-based minimum, mean, and standard deviation.
-- Hit masks and distance differences.
-- Segmented scan features.
-
-### Models evaluated
-
+**Models evaluated**
 - Custom K-Nearest Neighbours.
 - scikit-learn K-Nearest Neighbours.
 - Custom Decision Tree.
@@ -134,9 +88,9 @@ The perception component extracts features from LiDAR measurements, including:
 - Custom Random Forest.
 - scikit-learn Random Forest.
 
-### Perception results
+**Evaluation setup:** Stratified 75:25 train-test split.
 
-The models were evaluated using a stratified 75:25 train-test split.
+#### Perception results
 
 | Model | Accuracy | Macro F1-score |
 |---|---:|---:|
@@ -147,103 +101,70 @@ The models were evaluated using a stratified 75:25 train-test split.
 | Custom Random Forest | 78.00% | 78.00% |
 | scikit-learn Random Forest | 78.60% | 78.41% |
 
-The Decision Tree implementations achieved the highest accuracy in this experiment.
+The Decision Tree models achieved the highest accuracy in this experiment.
 
-**Dataset limitation:** The dataset is synthetic and generated using isolated object scenarios. These results should not be interpreted as evidence of reliable real-world object detection.
+**Important limitation:** The dataset is synthetic and generated using isolated object scenarios. The models classify simulated LiDAR patterns; the reported results do not establish real-world object recognition or validated robot perception.
 
-## 7. Autonomous Exploration and Navigation
+### C. Autonomous Indoor Navigation
 
-The navigation component explores unknown areas using an occupancy grid.
+**Entry point:** `experiments/evaluate_fuzzy_planners.py`
+
+This is the main autonomous navigation experiment.
+
+The robot explores the simulated environment using an occupancy grid and frontier-based navigation.
+
+#### Occupancy-grid mapping
 
 Each grid cell represents one of three states:
 
-- `-1`: Occupied.
-- `0`: Unknown.
-- `1`: Free.
+- `-1`: Occupied
+- `0`: Unknown
+- `1`: Free
 
-### Frontier-based exploration
+#### Frontier-based exploration
 
-A frontier is a free cell adjacent to at least one unknown cell.
+A frontier is a free cell adjacent to an unknown cell. The robot identifies frontier locations and selects exploration targets to progressively discover unknown areas.
 
-The robot identifies frontier cells and selects an exploration target based on information gain and path cost.
-
-This allows the robot to progressively explore unknown parts of the environment.
-
-### Path-planning algorithms
-
-Two path-planning algorithms are implemented:
+#### Path-planning algorithms
 
 **Breadth-First Search (BFS)**
-
 - Explores the grid level by level.
 - Finds shortest paths in an unweighted grid.
-- Used as one of the navigation approaches.
 
 **A* Search**
-
 - Uses path cost and a heuristic to guide its search.
 - Uses Manhattan distance as its heuristic.
-- Provides an alternative path-planning approach for comparison.
 
-### Fuzzy-logic safety controller
+#### Fuzzy-logic safety controller
 
-A fuzzy-logic controller evaluates three LiDAR sectors:
+The safety controller evaluates LiDAR distances in three directions:
 
 - Front
 - Left
 - Right
 
-Distance measurements are mapped into fuzzy membership categories:
+Distances are classified using fuzzy membership categories:
 
 - Near
 - Medium
 - Far
 
-The controller evaluates these inputs and selects an appropriate movement action.
+The controller can override unsafe movement decisions and includes obstacle-escape behaviour and temporary memory of rejected movement cells.
 
-When the planned forward movement is considered unsafe, the fuzzy controller can override the planner's decision.
-
-The autonomous controller also includes obstacle-escape behaviour and temporary memory of rejected movement cells to reduce repeated attempts.
-
-## 8. Q-Learning-Based Exploration
-
-Q-learning is implemented as an alternative reinforcement-learning approach to autonomous exploration.
-
-The agent learns action preferences using rewards and penalties.
-
-The reward design considers:
-
-- Discovering new cells.
-- Revisiting previously explored cells.
-- Collision avoidance.
-- Movement costs.
-
-A frontier-based Q-learning experiment was trained for 1,200 episodes.
-
-The learned Q-table is saved for later use.
-
-**Note:** Q-learning is an experimental component and is not the primary navigation method used in the final BFS/A* comparison.
-
-## 9. Experimental Evaluation
-
-The final navigation evaluation compares BFS and A* with the fuzzy-logic safety controller enabled.
-
-### Experimental setup
+#### Navigation evaluation setup
 
 | Parameter | Value |
 |---|---|
-| Environment | Simulated 2D indoor environment |
-| Starting seeds | 42–71 |
 | Algorithms | BFS and A* |
+| Starting seeds | 42–71 |
 | Episodes per algorithm | 30 |
 | Total episodes | 60 |
-| Steps per episode | 250 |
 | Traversable grid cells | 532 |
-| Evaluation metrics | Coverage, collisions, frontiers, replanning, safety overrides |
+| Safety controller | Enabled |
 
-Coverage is calculated using traversable free-space cells rather than the entire grid, which includes obstacles and invalid positions.
+Coverage is calculated using traversable free-space cells rather than the entire grid.
 
-### Final results
+#### Final navigation results
 
 | Metric | BFS | A* |
 |---|---:|---:|
@@ -256,21 +177,62 @@ Coverage is calculated using traversable free-space cells rather than the entire
 
 Values are reported as mean ± standard deviation across 30 episodes per algorithm.
 
-### Observations
-
-- Both navigation approaches completed all 30 evaluated episodes without collisions.
+**Observations**
+- Both approaches completed all 30 evaluated episodes without collisions.
 - BFS achieved slightly higher mean exploration coverage than A*.
-- BFS also reached slightly more frontier goals on average.
-- The difference in coverage is small and does not establish statistical superiority.
-- Both algorithms still have room for improvement in exploration efficiency.
+- The difference is small and does not establish statistical superiority.
+- Exploration coverage remains limited, indicating scope for improving frontier selection and navigation efficiency.
 
-These results demonstrate performance within the tested simulation scenarios, not a guarantee of real-world collision avoidance.
+Zero collisions in these experiments demonstrate performance only within the tested simulation scenarios. They do not guarantee real-world collision avoidance.
 
-## 10. Project Structure
+### D. Reinforcement Learning: Q-Learning
+
+**Entry point:** `reinforcement_learning/train.py`
+
+Q-learning is implemented as an additional exploration approach.
+
+The agent learns action preferences using rewards and penalties for:
+- Discovering new cells.
+- Revisiting previously explored cells.
+- Collisions.
+- Movement costs.
+
+The frontier-based Q-learning experiment is trained for 1,200 episodes. The learned Q-table is saved for later use.
+
+Training outputs include:
+- Q-table model.
+- Episode rewards.
+- Exploration coverage.
+- Frontier goals reached.
+
+Q-learning is an experimental component and is not the primary navigation method used in the final BFS/A* comparison.
+
+## 4. Additional Integration Test
+
+**Entry point:** `experiments/test_fuzzy_autonomous_navigation.py`
+
+This script checks the integration of autonomous navigation and fuzzy safety control.
+
+It runs:
+- BFS with seeds 42, 43, and 44.
+- A* with seeds 42, 43, and 44.
+- A maximum of 150 steps per episode.
+
+It reports visited cells, collisions, frontiers reached, safety checks, safety overrides, and replanning counts.
+
+The previously completed integration test produced:
+- 6 episodes.
+- 900 total steps.
+- 0 collisions.
+- 779 safety checks.
+- 40 safety overrides.
+
+This is a short integration test, separate from the 60-episode navigation evaluation.
+
+## 5. Project Structure
 
 ```text
 robot_perception_learning/
-│
 ├── main.py
 ├── config.py
 ├── requirements.txt
@@ -322,18 +284,17 @@ robot_perception_learning/
 └── models/
 ```
 
-## 11. Installation and Setup
+## 6. Installation and Setup
 
 ### Prerequisites
 
 - Python 3.10 or later.
 - Git.
-- VS Code or another Python-compatible editor.
 
 ### Clone the repository
 
 ```bash
-git clone <YOUR_GITHUB_REPOSITORY_URL>
+git clone https://github.com/irene-isreal/robot_perception_learning.git
 cd robot_perception_learning
 ```
 
@@ -356,9 +317,88 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-## 12. Running the Project
+## 7. Running the Experiments
 
-### Run the interactive LiDAR simulation
+Run commands from the project root with the virtual environment activated.
+
+### A. Interactive manual LiDAR simulation
 
 ```bash
-python
+python main.py
+```
+
+**Expected output:** A Pygame window displaying the indoor environment, robot, and live LiDAR scans. Use the keyboard controls described earlier.
+
+### B. Train and evaluate perception models
+
+```bash
+python -m experiments.train_perception
+```
+
+**Expected output:** Model evaluation metrics, including accuracy and classification performance. Check the `results/` and `models/` directories for generated artifacts.
+
+### C. Train the Q-learning agent
+
+```bash
+python -m reinforcement_learning.train
+```
+
+**Expected output:** Training progress over 1,200 episodes, a saved Q-table at `models/frontier_q_table.pkl`, a CSV training log, and reward/coverage plots in `results/`.
+
+### D. Test fuzzy safety
+
+```bash
+python -m experiments.test_fuzzy_safety
+```
+
+**Expected output:** Unit-test results for the fuzzy safety controller.
+
+### E. Test autonomous navigation integration
+
+```bash
+python -m experiments.test_fuzzy_autonomous_navigation
+```
+
+**Expected output:** Results for six short BFS/A* integration episodes, including collision and safety metrics.
+
+### F. Run the full BFS/A* evaluation
+
+```bash
+python -m experiments.evaluate_fuzzy_planners
+```
+
+**Expected output:** Results for 60 episodes, a mean and standard deviation comparison, and individual episode results saved to:
+
+`results/fuzzy_planner_comparison.csv`
+
+**Note:** This is a computationally longer experiment than the short integration test.
+
+## 8. Limitations
+
+1. The environment is a 2D simulation, not a physical robot.
+2. LiDAR measurements are simulated rather than collected from physical sensors.
+3. The perception dataset is synthetic and contains isolated object scenarios.
+4. The perception experiment does not establish real-world object recognition performance.
+5. Exploration coverage remains limited and requires improvement.
+6. Q-learning performance is weaker than the current frontier-based navigation approach.
+7. The system has not been tested on physical robotic hardware.
+8. The evaluation covers a finite set of starting seeds and cannot establish performance in every possible environment.
+
+## 9. Future Work
+
+- Improve frontier selection and exploration coverage.
+- Test larger and more complex indoor environments.
+- Incorporate realistic LiDAR noise and sensor limitations.
+- Evaluate perception models on real-world LiDAR datasets.
+- Explore hybrid reinforcement-learning and classical planning approaches.
+- Add dynamic obstacles and moving agents.
+- Integrate ROS 2 and a higher-fidelity robotics simulator.
+- Evaluate navigation on physical robotic hardware.
+
+## 10. Research Direction
+
+This project investigates several approaches to simulated autonomous indoor robotics, with particular emphasis on LiDAR-based perception, frontier-driven exploration, path planning, and safety-aware navigation.
+
+It provides a foundation for further investigation into autonomous robotics, intelligent navigation, and safe exploration systems.
+
+**Project status:** Simulation implementation and initial experimental evaluation completed. Improving exploration efficiency and real-world validation remain future work.
