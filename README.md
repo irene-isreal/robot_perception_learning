@@ -21,6 +21,53 @@ These components are implemented as separate experiments. The manual LiDAR demon
 **Language:** Python  
 **Environment:** 2D indoor simulation
 
+### System architecture
+
+The project contains four related but separately executed workflows. The BFS/A* navigation workflow integrates frontier-based exploration with fuzzy-logic safety control.
+
+```mermaid
+flowchart TB
+    subgraph L["1. Interactive LiDAR simulation"]
+        L1["main.py"] --> L2["Indoor environment and ray casting"]
+        L2 --> L3["Pygame visualization"]
+    end
+
+    subgraph P["2. Machine-learning perception"]
+        P1["Synthetic object scenarios"]
+        P2["LiDAR dataset and feature extraction"]
+        P3["KNN, Decision Tree and Random Forest"]
+        P4["Classification evaluation"]
+        P1 --> P2 --> P3 --> P4
+    end
+
+    subgraph N["3. Autonomous navigation with fuzzy safety"]
+        N1["Simulated environment and occupancy grid"]
+        N2["Frontier detection and goal selection"]
+        N3["BFS or A* path planning"]
+        N4["Autonomous controller"]
+        N5["Fuzzy safety controller"]
+        N6["Movement, obstacle escape and replanning"]
+        N1 --> N2 --> N3 --> N4
+        N4 -->|"Planned forward movement"| N5
+        N5 --> N6
+        N4 -->|"Other planned actions"| N6
+        N6 --> N1
+    end
+
+    subgraph Q["4. Independent Q-learning experiment"]
+        Q1["Exploration environment"]
+        Q2["LiDAR state and frontier goal"]
+        Q3["Epsilon-greedy action selection"]
+        Q4["Reward and Q-table update"]
+        Q5["Trained Q-table"]
+        Q1 --> Q2 --> Q3 --> Q4 --> Q5
+        Q4 -->|"Next state"| Q2
+    end
+```
+
+**Integration boundary:** The interactive LiDAR simulation, ML perception models and Q-learning agent are separate experiments. The autonomous navigation evaluation combines frontier-based planning with fuzzy safety control. ML predictions do not currently feed into navigation, and Q-learning does not use the BFS/A* controller.
+
+
 ## 2. Technologies Used
 
 | Technology | Purpose |
@@ -108,6 +155,7 @@ The Decision Tree models achieved the highest accuracy in this experiment.
 ### C. Autonomous Indoor Navigation
 
 **Entry point:** `experiments/evaluate_fuzzy_planners.py`
+│   └── plot_fuzzy_planner_comparison.py
 
 This is the main autonomous navigation experiment.
 
@@ -176,6 +224,11 @@ Coverage is calculated using traversable free-space cells rather than the entire
 | Safety override percentage | 4.59 ± 2.30% | 5.01 ± 1.62% |
 
 Values are reported as mean ± standard deviation across 30 episodes per algorithm.
+
+The following graph compares exploration coverage, frontier reachability, replanning frequency and fuzzy safety overrides. Error bars represent standard deviation across the 30 episodes for each algorithm.
+
+![BFS and A* fuzzy navigation comparison](results/fuzzy_planner_comparison.png)
+
 
 **Observations**
 - Both approaches completed all 30 evaluated episodes without collisions.
@@ -265,6 +318,9 @@ robot_perception_learning/
 ├── safety/
 │   └── fuzzy_controller.py
 │
+├── assets/
+│   └── lidar-demo-small.gif
+│
 ├── simulation/
 │   └── renderer.py
 │
@@ -276,7 +332,8 @@ robot_perception_learning/
 │   ├── test_fuzzy_safety.py
 │   ├── test_fuzzy_autonomous_navigation.py
 │   ├── diagnose_fuzzy_collision.py
-│   └── evaluate_fuzzy_planners.py
+│   ├── evaluate_fuzzy_planners.py
+│   └── plot_fuzzy_planner_comparison.py
 │
 ├── tests/
 ├── notebooks/
@@ -284,13 +341,15 @@ robot_perception_learning/
 └── models/
 ```
 
-## Demo
+## 6. Demonstrations and Experimental Visualizations
+
+### Interactive LiDAR Demo
 
 The following GIF shows a scripted movement sequence in the interactive 2D LiDAR simulation. It visualizes the robot's movement and simulated LiDAR scans; it is not a demonstration of the autonomous navigation planner.
 
 ![Scripted LiDAR simulation demo](assets/lidar-demo-small.gif)
 
-## 5.1 Experimental Visualizations
+### Experimental Visualizations
 
 ### Perception Model Comparison
 
@@ -304,13 +363,13 @@ The following GIF shows a scripted movement sequence in the interactive 2D LiDAR
 
 ![Q-learning exploration coverage](results/frontier_q_learning_coverage.png)
 
-### Frontier-Based Exploration
+### Frontier Goals During Q-Learning Training
 
-![Frontier exploration goals](results/frontier_goals.png)
+![Average frontier goals reached during Q-learning training](results/frontier_goals.png)
 
 ---
 
-## 6. Installation and Setup
+## 7. Installation and Setup
 
 ### Prerequisites
 
@@ -344,7 +403,7 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-## 7. Running the Experiments
+## 8. Running the Experiments
 
 Run commands from the project root with the virtual environment activated.
 
@@ -400,7 +459,16 @@ python -m experiments.evaluate_fuzzy_planners
 
 **Note:** This is a computationally longer experiment than the short integration test.
 
-## 8. Limitations
+### G. Generate the BFS/A* comparison graph
+
+```bash
+python -m experiments.plot_fuzzy_planner_comparison
+```
+
+**Expected output:** A four-panel graph saved to `results/fuzzy_planner_comparison.png`. This uses the existing CSV and does not rerun the navigation evaluation.
+
+
+## 9. Limitations
 
 1. The environment is a 2D simulation, not a physical robot.
 2. LiDAR measurements are simulated rather than collected from physical sensors.
@@ -411,7 +479,7 @@ python -m experiments.evaluate_fuzzy_planners
 7. The system has not been tested on physical robotic hardware.
 8. The evaluation covers a finite set of starting seeds and cannot establish performance in every possible environment.
 
-## 9. Future Work
+## 10. Future Work
 
 - Improve frontier selection and exploration coverage.
 - Test larger and more complex indoor environments.
@@ -422,7 +490,7 @@ python -m experiments.evaluate_fuzzy_planners
 - Integrate ROS 2 and a higher-fidelity robotics simulator.
 - Evaluate navigation on physical robotic hardware.
 
-## 10. Research Direction
+## 11. Research Direction
 
 This project investigates several approaches to simulated autonomous indoor robotics, with particular emphasis on LiDAR-based perception, frontier-driven exploration, path planning, and safety-aware navigation.
 
